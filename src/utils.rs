@@ -14,6 +14,7 @@ use pnet::ipnetwork::{IpNetwork, Ipv6Network};
 use regex::Regex;
 use sysinfo::{PidExt, ProcessExt, SystemExt};
 use tracing::{debug, error, warn};
+use tracing::field::debug;
 
 use crate::config::{ProgramConfig, SendInterface};
 use crate::ras::{ICMPV6_ROUTER_ADVERTISEMENT, Ipv6Packet, PREFIX_OPTION_TYPE, PrefixInformation, RouterAdvertisement, to_packet};
@@ -88,12 +89,13 @@ pub fn listen_to_ras(mut rx: Box<dyn DataLinkReceiver>, config: &ProgramConfig) 
                 // check checksum
                 if packet.icmpv6_checksum() != packet.ra.checksum {
                     warn!("Wrong checksum for {:x?}", packet);
-                    return;
+                    continue;
                 }
 
                 // give packet to thread to handle
                 let config_clone = config.clone();
                 let storage_clone = storage.clone();
+                debug!("Got packet {:x?}", packet);
                 thread::spawn(|| {
                     work_received_ra(packet, config_clone, storage_clone);
                 });

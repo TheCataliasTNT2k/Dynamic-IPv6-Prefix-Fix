@@ -42,7 +42,7 @@ fn check_config(config: &mut ProgramConfig) {
         }
         let count = send_interface.send_delays.len();
         send_interface.send_delays.retain(|delay| delay >= &1u8);
-        if send_interface.send_delays.len() >= count {
+        if send_interface.send_delays.len() < count {
             warn!("Removed {} zeros from send_delays from {} interface", count - send_interface.send_delays.len(), send_interface.name);
         }
         send_interface.send_delays.sort_unstable();
@@ -61,6 +61,7 @@ fn check_config(config: &mut ProgramConfig) {
 
 pub fn main() {
     tracing_subscriber::fmt::init();
+    info!("Starting...");
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         error!("No config file set, exiting!");
@@ -80,6 +81,7 @@ pub fn main() {
         error!("Exiting!");
         exit(4);
     };
+    info!("Listening on interface '{}'", config.listen_interface);
 
     listen_to_ras(rx, &config);
 }
