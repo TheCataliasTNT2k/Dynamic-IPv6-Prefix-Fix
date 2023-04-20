@@ -1,0 +1,6 @@
+[build]
+target = "mipsel-unknown-linux-musl"
+
+[target.mipsel-unknown-linux-musl]
+linker = "mipsel-unknown-linux-gnu-gcc"
+rustflags = ["-C", "target-feature=+crt-static", "-C", "link-arg=-s"]
