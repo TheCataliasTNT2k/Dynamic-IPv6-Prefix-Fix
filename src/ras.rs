@@ -9,11 +9,12 @@ pub(crate) const ICMPV6_ROUTER_ADVERTISEMENT: u8 = 134;
 pub(crate) const PREFIX_OPTION_TYPE: u8 = 3;
 
 #[derive(Debug, Clone)]
-pub struct Ipv6Packet {
+pub(crate) struct Ipv6Packet {
     pub(crate) source_mac: MacAddr,
     pub(crate) source_ip: Ipv6Addr,
     pub(crate) dest_ip: Ipv6Addr,
     pub(crate) ra: RouterAdvertisement,
+    pub(crate) payload: Vec<u8>,
 }
 
 impl Ipv6Packet {
@@ -37,16 +38,24 @@ impl Ipv6Packet {
             source_ip: Ipv6Addr::from(source),
             dest_ip: Ipv6Addr::from(dest),
             ra,
+            payload: ra_data.to_vec(),
         };
         Some(ipv6_packet)
     }
 
+    /// calculates the checksum of the ipv6 packet\
+    /// the RA data of this packet is used as payload
+    pub(crate) fn imcpv6_checksum(&self) -> u16 {
+        return Ipv6Packet::icmpv6_checksum_raw(self, self.ra.to_vec(self));
+    }
+
     // thanks chatgpt
-    pub(crate) fn icmpv6_checksum(&self) -> u16 {
+    /// calculates the checksum of the ipv6 packet, with given payload\
+    /// useful if your payload is not the same as the RA sotred in this packet
+    pub(crate) fn icmpv6_checksum_raw(&self, mut icmp_payload: Vec<u8>) -> u16 {
         let mut sum = 0;
-        let mut ra_clone = self.ra.clone();
-        ra_clone.checksum = 0;
-        let payload = ra_clone.to_vec(self);
+        let _ = std::mem::replace(&mut icmp_payload[2], 0);
+        let _ = std::mem::replace(&mut icmp_payload[3], 0);
 
         // Add source address
         for i in (0..16).step_by(2) {
@@ -62,14 +71,14 @@ impl Ipv6Packet {
 
         // Add upper layer packet length and protocol
         sum += u32::from(58u16);
-        sum += u32::from(payload.len() as u16);
+        sum += u32::from(icmp_payload.len() as u16);
 
         // Add upper layer packet
-        for i in (0..payload.len()).step_by(2) {
-            if i == payload.len() - 1 {
-                sum += u32::from(payload[i]) << 8;
+        for i in (0..icmp_payload.len()).step_by(2) {
+            if i == icmp_payload.len() - 1 {
+                sum += u32::from(icmp_payload[i]) << 8;
             } else {
-                let word = u16::from_be_bytes([payload[i], payload[i + 1]]);
+                let word = u16::from_be_bytes([icmp_payload[i], icmp_payload[i + 1]]);
                 sum += u32::from(word);
             }
         }
@@ -86,7 +95,7 @@ impl Ipv6Packet {
     /// generate the icmpv6 checksum and store it
     pub(crate) fn generate_and_store_checksum(&mut self) {
         self.ra.checksum = 0;
-        self.ra.checksum = self.icmpv6_checksum();
+        self.ra.checksum = self.imcpv6_checksum();
     }
 }
 
@@ -213,16 +222,17 @@ pub(crate) struct PrefixInformation {
     pub(crate) prefix: Ipv6Network,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
-pub struct EthernetPacket {
-    pub dest: MacAddr,
-    pub src: MacAddr,
-    pub vlan_tag: Option<u16>,
-    pub payload: Vec<u8>,
+pub(crate) struct EthernetPacket {
+    pub(crate) dest: MacAddr,
+    pub(crate) src: MacAddr,
+    pub(crate) vlan_tag: Option<u16>,
+    pub(crate) payload: Vec<u8>,
 }
 
 impl EthernetPacket {
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Option<Self> {
         if bytes.len() < 14 {
             warn!("Not a valid packet: {:x?}", bytes);
             return None;
@@ -249,10 +259,10 @@ impl EthernetPacket {
         };
         let payload = bytes[payload_offset..].to_vec();
         Some(Self {
-            dest: MacAddr::new(dest[0], dest[1], dest[2],dest[3], dest[4],dest[5]),
+            dest: MacAddr::new(dest[0], dest[1], dest[2], dest[3], dest[4], dest[5]),
             src: MacAddr::new(src[0], src[1], src[2], src[3], src[4], src[5]),
             vlan_tag,
-            payload
+            payload,
         })
     }
 }

@@ -1,14 +1,14 @@
 [package]
 name = "custom_ip6_ras"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pnet = {version = "0.33.0", default_features = false, features = ["std"] }
-sysinfo = {version = "0.28.3", default_features = false}
-nix = {version = "0.26.2", default_features = false, features = ["signal"]}
+pnet = { version = "0.33.0", default_features = false, features = ["std"] }
+sysinfo = { version = "0.28.3", default_features = false }
+nix = { version = "0.26.2", default_features = false, features = ["signal"] }
 tracing = { version = "0.1.37", default-features = false }
 tracing-subscriber = { version = "0.3.16", default-features = false, features = ["fmt", "ansi", "env-filter"] }
 regex = { version = "1.7.1", default-features = false }
@@ -16,4 +16,4 @@ config = { version = "0.13.3", default-features = false, features = ["json"] }
 serde = { version = "1.0.157", default-features = false, features = ["serde_derive"] }
 anyhow = { version = "1.0.70", default-features = false, features = ["std"] }
 serde_regex = { version = "1.1.0", default-features = false }
-itertools = { version = "0.10.5"}
+itertools = { version = "0.10.5" }

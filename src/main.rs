@@ -14,16 +14,18 @@ clippy::str_to_string,
 clippy::wildcard_enum_match_arm
 )]
 
+use std::{env};
+use std::process::exit;
+
+use regex::Regex;
+use tracing::{error, info, warn};
+
+use crate::config::{load, ProgramConfig};
+use crate::utils::{get_interface_channel, listen_to_ras};
+
 mod ras;
 mod utils;
 mod config;
-
-use std::env;
-use std::process::exit;
-use regex::Regex;
-use tracing::{error, info, warn};
-use crate::config::{load, ProgramConfig};
-use crate::utils::{get_interface_channel, listen_to_ras};
 
 fn check_config(config: &mut ProgramConfig) {
     if config.dhcpv6_process_filter.is_empty() {
@@ -61,15 +63,15 @@ fn check_config(config: &mut ProgramConfig) {
 
 pub fn main() {
     tracing_subscriber::fmt::init();
-    info!("Starting...");
+    info!("Starting version {}...", env!("CARGO_PKG_VERSION"));
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         error!("No config file set, exiting!");
         exit(1);
     }
 
-    let mut config = match load(&args[1])  {
-        Ok(v) => {v}
+    let mut config = match load(&args[1]) {
+        Ok(v) => { v }
         Err(err) => {
             error!("Could not load config! {err}");
             exit(2);
