@@ -13,8 +13,7 @@ use pnet::datalink::Channel::Ethernet;
 use pnet::ipnetwork::{IpNetwork, Ipv6Network};
 use regex::Regex;
 use sysinfo::{PidExt, ProcessExt, SystemExt};
-use tracing::{debug, error, warn};
-use tracing::field::debug;
+use tracing::{debug, error, info, warn};
 
 use crate::config::{ProgramConfig, SendInterface};
 use crate::ras::{ICMPV6_ROUTER_ADVERTISEMENT, Ipv6Packet, PREFIX_OPTION_TYPE, PrefixInformation, RouterAdvertisement, to_packet};
@@ -60,13 +59,37 @@ fn reload_dhcpcd(filter: Vec<String>) {
         let cmd = p.cmd().join(" ");
         filter.iter().all(|w| cmd.contains(w))
     }) {
-        debug!("Sending signal to process with pid: {}, cmd: {}", pid, process.cmd().join(" "));
+        info!("Sending signal to process with pid: {}, cmd: {}", pid, process.cmd().join(" "));
         if let Err(err) = kill(Pid::from_raw(pid.as_u32() as i32), SIGHUP) {
             error!("Signaling process {pid} failed: {err}");
         }
     } else {
         warn!("No process for filter '{}' found", filter.join(", "));
     }
+}
+
+fn handle_packet(packet: &[u8], config: &ProgramConfig, storage: &Arc<RwLock<Vec<String>>>, upstream_mac: [u8; 6]) {
+    // check if packet is RA and matches mac
+    if packet.len() <= 56 || packet[54] != 134 || packet[55] != 0 || packet[6..12] != upstream_mac {
+        return;
+    }
+    // get packet
+    let Some(parsed_packet) = Ipv6Packet::from_bytes(packet) else {
+        return;
+    };
+    // check checksum
+    if parsed_packet.icmpv6_checksum() != parsed_packet.ra.checksum {
+        warn!("Wrong checksum for {:x?}", packet);
+        return;
+    }
+
+    // give packet to thread to handle
+    let config_clone = config.clone();
+    let storage_clone = storage.clone();
+    debug!("Got packet {:x?}", parsed_packet);
+    thread::spawn(|| {
+        work_received_ra(parsed_packet, config_clone, storage_clone);
+    });
 }
 
 /// listen to all RAs on given channel and send RAs, if needed
@@ -78,27 +101,7 @@ pub fn listen_to_ras(mut rx: Box<dyn DataLinkReceiver>, config: &ProgramConfig) 
     loop {
         match rx.next() {
             Ok(packet) => {
-                // check if packet is RA and matches mac
-                if packet.len() <= 56 || packet[54] != 134 || packet[55] != 0 || packet[6..12] != upstream_mac {
-                    continue;
-                }
-                // get packet
-                let Some(packet) = Ipv6Packet::from_bytes(packet) else {
-                    continue;
-                };
-                // check checksum
-                if packet.icmpv6_checksum() != packet.ra.checksum {
-                    warn!("Wrong checksum for {:x?}", packet);
-                    continue;
-                }
-
-                // give packet to thread to handle
-                let config_clone = config.clone();
-                let storage_clone = storage.clone();
-                debug!("Got packet {:x?}", packet);
-                thread::spawn(|| {
-                    work_received_ra(packet, config_clone, storage_clone);
-                });
+                handle_packet(packet, config, &storage, upstream_mac);
             }
             Err(e) => warn!("Failed to receive packet: {}", e),
         }
@@ -200,6 +203,7 @@ fn work_ra_for_interface(packet: Ipv6Packet, interface_param: SendInterface) {
     let Some((mut tx, _)) = get_interface_channel(&interface_param.name) else {
         return;
     };
+    info!("Sending RAs for '{}'", ipv6_packet.ra.prefixes.iter().map(|p| p.prefix.to_string()).join(", "));
     // convert packet to binary data
     let vec = to_packet(&mut ipv6_packet);
     // send packet

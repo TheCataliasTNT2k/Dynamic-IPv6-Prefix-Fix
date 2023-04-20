@@ -43,7 +43,7 @@ fn check_config(config: &mut ProgramConfig) {
         let count = send_interface.send_delays.len();
         send_interface.send_delays.retain(|delay| delay >= &1u8);
         if send_interface.send_delays.len() < count {
-            warn!("Removed {} zeros from send_delays from {} interface", count - send_interface.send_delays.len(), send_interface.name);
+            warn!("Removed {} zeros from send_delays for {} interface", count - send_interface.send_delays.len(), send_interface.name);
         }
         send_interface.send_delays.sort_unstable();
         for prefix in &send_interface.prefixes {
