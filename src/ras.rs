@@ -18,14 +18,13 @@ pub struct Ipv6Packet {
 
 impl Ipv6Packet {
     /// read ipv6 packet from byte array
-    pub(crate) fn from_bytes(bytes: &[u8]) -> Option<Self> {
+    pub(crate) fn from_bytes(bytes: &[u8], mac: MacAddr) -> Option<Self> {
         // store stuff of this packet into vars
-        let mac = &bytes[6..12];
-        let source: [u8; 16] = <[u8; 16]>::try_from(&bytes[22..38]).unwrap();
-        let dest: [u8; 16] = <[u8; 16]>::try_from(&bytes[38..54]).unwrap();
+        let source: [u8; 16] = <[u8; 16]>::try_from(&bytes[10..26]).unwrap();
+        let dest: [u8; 16] = <[u8; 16]>::try_from(&bytes[26..42]).unwrap();
 
         // remove ipv6 data from packet
-        let ra_data = &bytes[54..];
+        let ra_data = &bytes[42..];
         if ra_data.len() < 16 || ra_data[1] != 0 {
             warn!("Not an RA: {:x?}", bytes);
             return None;
@@ -34,7 +33,7 @@ impl Ipv6Packet {
         // parse the packet as an RA packet
         let ra = RouterAdvertisement::from_bytes(ra_data);
         let ipv6_packet = Ipv6Packet {
-            source_mac: MacAddr::new(mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]),
+            source_mac: mac,
             source_ip: Ipv6Addr::from(source),
             dest_ip: Ipv6Addr::from(dest),
             ra,
@@ -214,6 +213,50 @@ pub(crate) struct PrefixInformation {
     pub(crate) prefix: Ipv6Network,
 }
 
+#[derive(Debug)]
+pub struct EthernetPacket {
+    pub dest: MacAddr,
+    pub src: MacAddr,
+    pub vlan_tag: Option<u16>,
+    pub payload: Vec<u8>,
+}
+
+impl EthernetPacket {
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() < 14 {
+            warn!("Not a valid packet: {:x?}", bytes);
+            return None;
+        }
+        let mut offset = 0;
+        let dest = [
+            bytes[offset], bytes[offset + 1], bytes[offset + 2],
+            bytes[offset + 3], bytes[offset + 4], bytes[offset + 5],
+        ];
+        offset += 6;
+        let src = [
+            bytes[offset], bytes[offset + 1], bytes[offset + 2],
+            bytes[offset + 3], bytes[offset + 4], bytes[offset + 5],
+        ];
+        offset += 6;
+        let (vlan_tag, payload_offset) = if bytes[offset..].starts_with(&[0x81, 0x00]) {
+            if bytes.len() < 18 {
+                return None;
+            }
+            let vlan_tag = ((bytes[offset + 2] as u16) << 8) | (bytes[offset + 3] as u16);
+            (Some(vlan_tag), offset + 4)
+        } else {
+            (None, offset)
+        };
+        let payload = bytes[payload_offset..].to_vec();
+        Some(Self {
+            dest: MacAddr::new(dest[0], dest[1], dest[2],dest[3], dest[4],dest[5]),
+            src: MacAddr::new(src[0], src[1], src[2], src[3], src[4], src[5]),
+            vlan_tag,
+            payload
+        })
+    }
+}
+
 pub(crate) fn to_packet(payload: &mut Ipv6Packet) -> Vec<u8> {
     payload.generate_and_store_checksum();
     let data = payload.ra.to_vec(payload);
@@ -239,5 +282,6 @@ pub(crate) fn to_packet(payload: &mut Ipv6Packet) -> Vec<u8> {
     ip_buf.extend_from_slice(&payload.dest_ip.octets());
     // add icmp data
     ip_buf.extend_from_slice(&data);
+
     ip_buf
 }

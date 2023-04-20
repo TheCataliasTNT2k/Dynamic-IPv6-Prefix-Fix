@@ -16,7 +16,7 @@ use sysinfo::{PidExt, ProcessExt, SystemExt};
 use tracing::{debug, error, info, warn};
 
 use crate::config::{ProgramConfig, SendInterface};
-use crate::ras::{ICMPV6_ROUTER_ADVERTISEMENT, Ipv6Packet, PREFIX_OPTION_TYPE, PrefixInformation, RouterAdvertisement, to_packet};
+use crate::ras::{EthernetPacket, ICMPV6_ROUTER_ADVERTISEMENT, Ipv6Packet, PREFIX_OPTION_TYPE, PrefixInformation, RouterAdvertisement, to_packet};
 
 /// get and interface channel by name of interface to send and receive
 pub fn get_interface_channel(interface_name: &str) -> Option<(Box<dyn DataLinkSender>, Box<dyn DataLinkReceiver>)> {
@@ -68,25 +68,31 @@ fn reload_dhcpcd(filter: Vec<String>) {
     }
 }
 
-fn handle_packet(packet: &[u8], config: &ProgramConfig, storage: &Arc<RwLock<Vec<String>>>, upstream_mac: [u8; 6]) {
+fn handle_packet(packet: &[u8], config: &ProgramConfig, storage: &Arc<RwLock<Vec<String>>>, macs: ([u8; 6], [u8; 6])) {
+    let Some(ethernet_packet) = EthernetPacket::from_bytes(packet) else {
+        return;
+    };
     // check if packet is RA and matches mac
-    if packet.len() <= 56 || packet[54] != 134 || packet[55] != 0 || packet[6..12] != upstream_mac {
+    if ethernet_packet.payload[42] != 134
+        || ethernet_packet.payload[43] != 0
+        || ethernet_packet.src != macs.0
+        || ethernet_packet.dest != macs.1 {
         return;
     }
     // get packet
-    let Some(parsed_packet) = Ipv6Packet::from_bytes(packet) else {
+    let Some(parsed_packet) = Ipv6Packet::from_bytes(&ethernet_packet.payload, ethernet_packet.src) else {
         return;
     };
     // check checksum
+    let cs = parsed_packet.icmpv6_checksum();
     if parsed_packet.icmpv6_checksum() != parsed_packet.ra.checksum {
-        warn!("Wrong checksum for {:x?}", packet);
+        warn!("Wrong checksum {} for {:x?}", cs, packet);
         return;
     }
 
     // give packet to thread to handle
     let config_clone = config.clone();
     let storage_clone = storage.clone();
-    debug!("Got packet {:x?}", parsed_packet);
     thread::spawn(|| {
         work_received_ra(parsed_packet, config_clone, storage_clone);
     });
@@ -98,10 +104,11 @@ pub fn listen_to_ras(mut rx: Box<dyn DataLinkReceiver>, config: &ProgramConfig) 
     let storage: Arc<RwLock<Vec<String>>> = Arc::new(RwLock::new(vec![]));
     // mac to match packets against
     let upstream_mac = MacAddr::from_str(&config.upstream_mac).unwrap().octets();
+    let dest_mac = MacAddr::new(51, 51, 0, 0, 0, 1).octets();
     loop {
         match rx.next() {
             Ok(packet) => {
-                handle_packet(packet, config, &storage, upstream_mac);
+                handle_packet(packet, config, &storage, (upstream_mac, dest_mac));
             }
             Err(e) => warn!("Failed to receive packet: {}", e),
         }
