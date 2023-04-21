@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![warn(clippy::pedantic)]
+// #![warn(clippy::pedantic)]
 #![warn(clippy::dbg_macro, clippy::use_debug)]
 #![warn(
     clippy::expect_used,
