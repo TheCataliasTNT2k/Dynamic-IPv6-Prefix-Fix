@@ -9,20 +9,25 @@ use itertools::Itertools;
 use nix::sys::signal::{kill, SIGHUP};
 use nix::unistd::Pid;
 use pnet::datalink;
-use pnet::datalink::{Config, DataLinkReceiver, DataLinkSender, MacAddr, NetworkInterface};
 use pnet::datalink::Channel::Ethernet;
+use pnet::datalink::{Config, DataLinkReceiver, DataLinkSender, MacAddr, NetworkInterface};
 use pnet::ipnetwork::{IpNetwork, Ipv6Network};
 use regex::Regex;
 use sysinfo::{PidExt, ProcessExt, SystemExt};
 use tracing::{debug, error, info, warn};
 
 use crate::config::{ProgramConfig, SendInterface};
-use crate::ras::{EthernetPacket, ICMPV6_ROUTER_ADVERTISEMENT, Ipv6Packet, PREFIX_OPTION_TYPE, PrefixInformation, RouterAdvertisement, to_packet};
+use crate::ras::{
+    to_packet, EthernetPacket, Ipv6Packet, PrefixInformation, RouterAdvertisement,
+    ICMPV6_ROUTER_ADVERTISEMENT, PREFIX_OPTION_TYPE,
+};
 
 type PrefixStorage = Arc<RwLock<(Vec<String>, HashMap<String, Instant>)>>;
 
 /// get and interface channel by name of interface to send and receive
-pub(crate) fn get_interface_channel(interface_name: &str) -> Option<(Box<dyn DataLinkSender>, Box<dyn DataLinkReceiver>)> {
+pub(crate) fn get_interface_channel(
+    interface_name: &str,
+) -> Option<(Box<dyn DataLinkSender>, Box<dyn DataLinkReceiver>)> {
     // find the interface by name
     let Some(interface) = get_interface(interface_name) else {
         return None;
@@ -46,7 +51,9 @@ pub(crate) fn get_interface_channel(interface_name: &str) -> Option<(Box<dyn Dat
 /// get an interface by name
 pub(crate) fn get_interface(interface_name: &str) -> Option<NetworkInterface> {
     // find the interface by name
-    let interface = datalink::interfaces().into_iter().find(|iface| &iface.name == interface_name);
+    let interface = datalink::interfaces()
+        .into_iter()
+        .find(|iface| &iface.name == interface_name);
     if interface.is_none() {
         error!("Interface {} not found", interface_name);
     }
@@ -64,7 +71,11 @@ fn reload_dhcpcd(filter: Vec<String>) {
         filter.iter().all(|w| cmd.contains(w))
     }) {
         // send SIGHUP signal
-        info!("Sending signal to process with pid: {}, name: {}", pid, process.name());
+        info!(
+            "Sending signal to process with pid: {}, name: {}",
+            pid,
+            process.name()
+        );
         if let Err(err) = kill(Pid::from_raw(pid.as_u32() as i32), SIGHUP) {
             error!("Signaling process {pid} failed: {err}");
         }
@@ -73,7 +84,12 @@ fn reload_dhcpcd(filter: Vec<String>) {
     }
 }
 
-fn handle_packet(packet: &[u8], config: &ProgramConfig, storage: &PrefixStorage, macs: ([u8; 6], [u8; 6])) {
+fn handle_packet(
+    packet: &[u8],
+    config: &ProgramConfig,
+    storage: &PrefixStorage,
+    macs: ([u8; 6], [u8; 6]),
+) {
     // parse packet as ethernet
     let Some(ethernet_packet) = EthernetPacket::from_bytes(packet) else {
         return;
@@ -83,7 +99,8 @@ fn handle_packet(packet: &[u8], config: &ProgramConfig, storage: &PrefixStorage,
         || ethernet_packet.payload[42] != 134
         || ethernet_packet.payload[43] != 0
         || ethernet_packet.src != macs.0
-        || ethernet_packet.dest != macs.1 {
+        || ethernet_packet.dest != macs.1
+    {
         return;
     }
     debug!("GOT RA: {:x?}", ethernet_packet);
@@ -94,7 +111,10 @@ fn handle_packet(packet: &[u8], config: &ProgramConfig, storage: &PrefixStorage,
     // check checksum
     let cs = parsed_packet.icmpv6_checksum_raw(parsed_packet.payload.clone());
     if cs != parsed_packet.ra.checksum {
-        warn!("Wrong checksum {}/{} for {:x?}", cs, parsed_packet.ra.checksum, packet);
+        warn!(
+            "Wrong checksum {}/{} for {:x?}",
+            cs, parsed_packet.ra.checksum, packet
+        );
         return;
     }
 
@@ -127,12 +147,32 @@ pub(crate) fn listen_to_ras(mut rx: Box<dyn DataLinkReceiver>, config: &ProgramC
 fn work_received_ra(packet: Ipv6Packet, config: ProgramConfig, storage: PrefixStorage) {
     let mut lock = storage.write().unwrap();
     let mut found = false;
-    debug!("{:?} GOT PREFIXES {:?}", thread::current().id(), packet.ra.prefixes);
-    debug!("{:?} NORMAL LOCK BEFORE: '{}', REMOVE LOCK BEFORE: '{}'", thread::current().id(), lock.0.join(" "), lock.1.keys().join(" "));
+    debug!(
+        "{:?} GOT PREFIXES {:?}",
+        thread::current().id(),
+        packet.ra.prefixes
+    );
+    debug!(
+        "{:?} NORMAL LOCK BEFORE: '{}', REMOVE LOCK BEFORE: '{}'",
+        thread::current().id(),
+        lock.0.join(" "),
+        lock.1.keys().join(" ")
+    );
     // check if any previously received prefix is missing in this RA; ignore all prefixes with lifetime 0
     for prefix in lock.0.clone() {
-        if !packet.ra.prefixes.iter().filter(|p| p.preferred_lifetime > 0).map(|p| p.prefix.to_string()).contains(&prefix) {
-            debug!("{:?} FOUND missing: {}", thread::current().id(), prefix.to_string());
+        if !packet
+            .ra
+            .prefixes
+            .iter()
+            .filter(|p| p.preferred_lifetime > 0)
+            .map(|p| p.prefix.to_string())
+            .contains(&prefix)
+        {
+            debug!(
+                "{:?} FOUND missing: {}",
+                thread::current().id(),
+                prefix.to_string()
+            );
             found = true;
         }
     }
@@ -140,17 +180,31 @@ fn work_received_ra(packet: Ipv6Packet, config: ProgramConfig, storage: PrefixSt
     for prefix in &packet.ra.prefixes {
         // do not use lifetime 0 prefixes here
         if prefix.preferred_lifetime > 0 {
-            if !lock.0.iter().contains(&prefix.prefix.to_string()) && config.prefixes_regex.is_match(&prefix.prefix.ip().to_string()) {
-                debug!("{:?} FOUND new: {}", thread::current().id(), prefix.prefix.to_string());
+            if !lock.0.iter().contains(&prefix.prefix.to_string())
+                && config
+                    .prefixes_regex
+                    .is_match(&prefix.prefix.ip().to_string())
+            {
+                debug!(
+                    "{:?} FOUND new: {}",
+                    thread::current().id(),
+                    prefix.prefix.to_string()
+                );
                 found = true;
             }
             // else if we got same prefix with lifetime 0 earlier, remove it from second storage
             lock.1.remove(&prefix.prefix.ip().to_string());
-        } else if config.prefixes_regex.is_match(&prefix.prefix.ip().to_string()) {
+        } else if config
+            .prefixes_regex
+            .is_match(&prefix.prefix.ip().to_string())
+        {
             // check if lifetime 0 prefixes were received within last 30 minutes; used for debounce
             match lock.1.get(&prefix.prefix.to_string()) {
                 None => {
-                    debug!("Got prefix with preferred-lifetime of 0: {}", prefix.prefix.to_string());
+                    debug!(
+                        "Got prefix with preferred-lifetime of 0: {}",
+                        prefix.prefix.to_string()
+                    );
                     found = true;
                 }
                 Some(value) => {
@@ -162,7 +216,8 @@ fn work_received_ra(packet: Ipv6Packet, config: ProgramConfig, storage: PrefixSt
                 }
             }
             // reset decay timer for this lifetime 0 prefix
-            lock.1.insert(prefix.prefix.to_string().clone(), Instant::now());
+            lock.1
+                .insert(prefix.prefix.to_string().clone(), Instant::now());
         }
     }
     // remove all lifetime 0 prefixes, which were not announces for 2 hours
@@ -170,14 +225,23 @@ fn work_received_ra(packet: Ipv6Packet, config: ProgramConfig, storage: PrefixSt
     // clear previously received prefixes and add prefixes of this RA; no lifetime 0 prefixes
     lock.0.clear();
     lock.0.append(
-        &mut packet.ra.prefixes.iter()
+        &mut packet
+            .ra
+            .prefixes
+            .iter()
             .filter(|p| p.preferred_lifetime > 0)
             .filter(|p| config.prefixes_regex.is_match(&p.prefix.ip().to_string()))
-            .map(|p| p.prefix.to_string()).collect()
+            .map(|p| p.prefix.to_string())
+            .collect(),
     );
-    debug!("{:?} NORMAL LOCK AFTER: '{}', REMOVE LOCK AFTER: '{}'", thread::current().id(), lock.0.join(" "), lock.1.keys().join(" "));
+    debug!(
+        "{:?} NORMAL LOCK AFTER: '{}', REMOVE LOCK AFTER: '{}'",
+        thread::current().id(),
+        lock.0.join(" "),
+        lock.1.keys().join(" ")
+    );
     drop(lock);
-    if found  {
+    if found {
         // if needed, send RAs, from new threads
         for send_interface in config.send_interfaces.clone() {
             let packet_clone = packet.clone();
@@ -203,7 +267,11 @@ fn work_ra_for_interface(packet: Ipv6Packet, interface_param: SendInterface) {
     let Some(interface) = get_interface(&interface_param.name) else {
         return;
     };
-    debug!("{:?} IPs on interface: {}", thread::current().id(), interface.ips.iter().map(|ip| ip.to_string()).join(" "));
+    debug!(
+        "{:?} IPs on interface: {}",
+        thread::current().id(),
+        interface.ips.iter().map(|ip| ip.to_string()).join(" ")
+    );
     // get mac of this interface
     let Some(mac) = interface.mac else {
         warn!("Interface {} does not have a mac, skipping!", interface_param.name);
@@ -251,11 +319,21 @@ fn work_ra_for_interface(packet: Ipv6Packet, interface_param: SendInterface) {
                 });
                 break;
             } else {
-                debug!("{:?} IF {}: {} does not match {}", thread::current().id(), interface_param.name, ip.ip().to_string(), prefix.regex.to_string());
+                debug!(
+                    "{:?} IF {}: {} does not match {}",
+                    thread::current().id(),
+                    interface_param.name,
+                    ip.ip().to_string(),
+                    prefix.regex.to_string()
+                );
             }
         }
     }
-    debug!("{:?} Found ips: {}", thread::current().id(), ra.prefixes.iter().map(|p| p.prefix.to_string()).join(" "));
+    debug!(
+        "{:?} Found ips: {}",
+        thread::current().id(),
+        ra.prefixes.iter().map(|p| p.prefix.to_string()).join(" ")
+    );
     // construct packet
     let mut ipv6_packet = Ipv6Packet {
         source_mac: mac,
@@ -272,7 +350,17 @@ fn work_ra_for_interface(packet: Ipv6Packet, interface_param: SendInterface) {
     let Some((mut tx, _)) = get_interface_channel(&interface_param.name) else {
         return;
     };
-    info!("{:?} Sending RAs for '{}' on interface {}", thread::current().id(), ipv6_packet.ra.prefixes.iter().map(|p| p.prefix.to_string()).join(", "), interface_param.name);
+    info!(
+        "{:?} Sending RAs for '{}' on interface {}",
+        thread::current().id(),
+        ipv6_packet
+            .ra
+            .prefixes
+            .iter()
+            .map(|p| p.prefix.to_string())
+            .join(", "),
+        interface_param.name
+    );
     // convert packet to binary data
     let vec = to_packet(&mut ipv6_packet);
     // send packet

@@ -59,7 +59,8 @@ impl Ipv6Packet {
 
         // Add source address
         for i in (0..16).step_by(2) {
-            let word = u16::from_be_bytes([self.source_ip.octets()[i], self.source_ip.octets()[i + 1]]);
+            let word =
+                u16::from_be_bytes([self.source_ip.octets()[i], self.source_ip.octets()[i + 1]]);
             sum += u32::from(word);
         }
 
@@ -142,7 +143,8 @@ impl RouterAdvertisement {
                 let prefix = Ipv6Network::new(
                     Ipv6Addr::from(<[u8; 16]>::try_from(&data[pos + 16..pos + 32]).unwrap()),
                     prefix_length,
-                ).unwrap();
+                )
+                .unwrap();
 
                 prefixes.push(PrefixInformation {
                     flags: option_flags,
@@ -239,13 +241,21 @@ impl EthernetPacket {
         }
         let mut offset = 0;
         let dest = [
-            bytes[offset], bytes[offset + 1], bytes[offset + 2],
-            bytes[offset + 3], bytes[offset + 4], bytes[offset + 5],
+            bytes[offset],
+            bytes[offset + 1],
+            bytes[offset + 2],
+            bytes[offset + 3],
+            bytes[offset + 4],
+            bytes[offset + 5],
         ];
         offset += 6;
         let src = [
-            bytes[offset], bytes[offset + 1], bytes[offset + 2],
-            bytes[offset + 3], bytes[offset + 4], bytes[offset + 5],
+            bytes[offset],
+            bytes[offset + 1],
+            bytes[offset + 2],
+            bytes[offset + 3],
+            bytes[offset + 4],
+            bytes[offset + 5],
         ];
         offset += 6;
         let (vlan_tag, payload_offset) = if bytes[offset..].starts_with(&[0x81, 0x00]) {
@@ -280,7 +290,7 @@ pub(crate) fn to_packet(payload: &mut Ipv6Packet) -> Vec<u8> {
         134, 221,
         // add ip version, traffic class, flow label
         // be aware, these are byte aligned here, (e.g. ip version is 4 bit in packet, so it was merged with next 4 bit)
-        96, 4, 172, 239
+        96, 4, 172, 239,
     ]);
     // add payload length
     ip_buf.extend_from_slice(&(data.len() as u16).to_be_bytes());
