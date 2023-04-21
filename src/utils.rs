@@ -53,7 +53,7 @@ pub(crate) fn get_interface(interface_name: &str) -> Option<NetworkInterface> {
     // find the interface by name
     let interface = datalink::interfaces()
         .into_iter()
-        .find(|iface| &iface.name == interface_name);
+        .find(|iface| iface.name == interface_name);
     if interface.is_none() {
         error!("Interface {} not found", interface_name);
     }
@@ -270,7 +270,7 @@ fn work_ra_for_interface(packet: Ipv6Packet, interface_param: SendInterface) {
     debug!(
         "{:?} IPs on interface: {}",
         thread::current().id(),
-        interface.ips.iter().map(|ip| ip.to_string()).join(" ")
+        interface.ips.iter().map(ToString::to_string).join(" ")
     );
     // get mac of this interface
     let Some(mac) = interface.mac else {
@@ -318,15 +318,14 @@ fn work_ra_for_interface(packet: Ipv6Packet, interface_param: SendInterface) {
                     prefix: Ipv6Network::new(Ipv6Addr::from(octets), prefix.length).unwrap(),
                 });
                 break;
-            } else {
-                debug!(
-                    "{:?} IF {}: {} does not match {}",
-                    thread::current().id(),
-                    interface_param.name,
-                    ip.ip().to_string(),
-                    prefix.regex.to_string()
-                );
             }
+            debug!(
+                "{:?} IF {}: {} does not match {}",
+                thread::current().id(),
+                interface_param.name,
+                ip.ip().to_string(),
+                prefix.regex.to_string()
+            );
         }
     }
     debug!(
@@ -367,7 +366,7 @@ fn work_ra_for_interface(packet: Ipv6Packet, interface_param: SendInterface) {
     tx.send_to(&vec, None);
     // send packet again, for each delay setting, and wait between sends
     for delay in interface_param.send_delays {
-        thread::sleep(Duration::from_secs(delay as u64));
+        thread::sleep(Duration::from_secs(u64::from(delay)));
         tx.send_to(&vec, None);
     }
 }
@@ -375,8 +374,8 @@ fn work_ra_for_interface(packet: Ipv6Packet, interface_param: SendInterface) {
 /// this will remove all set host bits in the given ipv6 address
 pub(crate) fn apply_netmask(ipv6: &mut [u8; 16], mask_len: usize) {
     let mut net_bytes = [0u8; 16];
-    for i in 0..mask_len / 8 {
-        net_bytes[i] = 255;
+    for byte in net_bytes.iter_mut().take(mask_len / 8) {
+        *byte = 255;
     }
 
     if mask_len % 8 != 0 {

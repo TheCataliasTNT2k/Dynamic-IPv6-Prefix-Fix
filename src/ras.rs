@@ -46,7 +46,7 @@ impl Ipv6Packet {
     /// calculates the checksum of the ipv6 packet\
     /// the RA data of this packet is used as payload
     pub(crate) fn imcpv6_checksum(&self) -> u16 {
-        return Ipv6Packet::icmpv6_checksum_raw(self, self.ra.to_vec(self));
+        Ipv6Packet::icmpv6_checksum_raw(self, self.ra.to_vec(self))
     }
 
     // thanks chatgpt
@@ -262,7 +262,7 @@ impl EthernetPacket {
             if bytes.len() < 18 {
                 return None;
             }
-            let vlan_tag = ((bytes[offset + 2] as u16) << 8) | (bytes[offset + 3] as u16);
+            let vlan_tag = (u16::from(bytes[offset + 2]) << 8) | u16::from(bytes[offset + 3]);
             (Some(vlan_tag), offset + 4)
         } else {
             (None, offset)
