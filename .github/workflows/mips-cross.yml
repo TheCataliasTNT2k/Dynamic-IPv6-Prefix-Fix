@@ -35,7 +35,7 @@ jobs:
       - name: nix build
         run: |
           set -ex
-          nix build
+          nix build .#docker
           image=$(docker load -qi result | cut -d' ' -f3)
           docker tag "$image" base
           docker rmi "$image"
