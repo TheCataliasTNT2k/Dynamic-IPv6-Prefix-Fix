@@ -51,7 +51,6 @@ fn check_config(config: &mut ProgramConfig) {
                 send_interface.name
             );
         }
-        send_interface.send_delays.sort_unstable();
         for prefix in &send_interface.prefixes {
             if prefix.length > 128 {
                 error!(

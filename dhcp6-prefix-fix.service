@@ -1,0 +1,17 @@
+[Unit]
+Description=This Service reloads dhcp6c or similar processes, when it receives Router Advertisement with unknown IPv6-Prefix or with an IPv6-Prefix which has preferred-lifetime set to 0.
+Documentation=https://github.com/TheCataliasTNT2k/Dynamic-IPv6-Prefix-Fix
+StartLimitIntervalSec=30
+StartLimitBurst=5
+
+[Service]
+Environment="RUST_LOG=INFO'
+ExecStart=/usr/bin/dhcp6-prefix-fix /etc/dhcp6-prefix-fix.json
+RestartSec=2s
+Restart=on-failure
+RestartPreventExitStatus=1 2 3 4 5
+User=nobody
+Group=nogroup
+
+[Install]
+WantedBy=multi-user.target
