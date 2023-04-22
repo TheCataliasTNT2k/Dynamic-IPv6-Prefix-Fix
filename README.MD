@@ -14,7 +14,7 @@ by `upstream_mac`.
 Every time a RA is received, the program checks, if
 
 - any prefix is advertised with a `preferred-lifetime` of zero (i.e. prefix should not be used anymore)
-- or any given prefix is "new" (was not present in the last RA)
+- or any given prefix is "new" (was not present in the last RA) and `ignore_new_prefixes` is `false`
 - or any prefix received with the last RA is missing in this RA
 
 The found prefixes are filtered by the `prefixes_regex`.  
@@ -49,13 +49,14 @@ This will cause the process to re-request the delegated prefix or get a new one,
 
 The config file has the following fields:
 
-|         Setting         |       Type       |             Example             | Explanation                                                                |
-|:-----------------------:|:----------------:|:-------------------------------:|:---------------------------------------------------------------------------|
-|   `listen_interface`    |      String      |             `eth0`              | The program will listen on this interface for RAs from the upstream router |
-|     `upstream_mac`      |      String      |       `ba:c8:e2:e8:6c:01`       | Only RAs with this mac as source mac are accepted                          |
-|    `prefixes_regex`     |      String      | <code>2001:.\*\|fd00:.\*</code> | Only advertised prefixes matching this regex are used                      |
-|    `send_interfaces`    |    see below     |                                 | Which interfaces should be used to send RAs for the invalid prefixes       |
-| `dhcpv6_process_filter` | Array of Strings |       `["dhcpv6","eth0"]`       | Search filter for the dhcpv6 process; all must match                       |
+|         Setting         |       Type       |             Example             | Explanation                                                                                                            |
+|:-----------------------:|:----------------:|:-------------------------------:|:-----------------------------------------------------------------------------------------------------------------------|
+|   `listen_interface`    |      String      |             `eth0`              | The program will listen on this interface for RAs from the upstream router                                             |
+|     `upstream_mac`      |      String      |       `ba:c8:e2:e8:6c:01`       | Only RAs with this mac as source mac are accepted                                                                      |
+|  `ignore_new_prefixes`  |       bool       |             `true`              | If true, the program will not send RAs if new a prefix is received, only if at least one known prefix is missing in RA |
+|    `prefixes_regex`     |      String      | <code>2001:.\*\|fd00:.\*</code> | Only advertised prefixes matching this regex are used                                                                  |
+| `dhcpv6_process_filter` | Array of Strings |       `["dhcpv6","eth0"]`       | Search filter for the dhcpv6 process; all must match                                                                   |
+|    `send_interfaces`    |    see below     |                                 | Which interfaces should be used to send RAs for the invalid prefixes                                                   |
 
 <br>
 

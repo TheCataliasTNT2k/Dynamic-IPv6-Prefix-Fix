@@ -8,10 +8,11 @@ use serde::Deserialize;
 pub(crate) struct ProgramConfig {
     pub(crate) listen_interface: String,
     pub(crate) upstream_mac: String,
-    pub(crate) send_interfaces: Vec<SendInterface>,
+    pub(crate) ignore_new_prefixes: bool,
     pub(crate) dhcpv6_process_filter: Vec<String>,
     #[serde(with = "serde_regex")]
     pub(crate) prefixes_regex: Regex,
+    pub(crate) send_interfaces: Vec<SendInterface>,
 }
 
 #[derive(Deserialize, Clone, Debug)]

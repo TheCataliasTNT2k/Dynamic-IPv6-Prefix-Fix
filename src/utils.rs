@@ -184,6 +184,7 @@ fn work_received_ra(packet: Ipv6Packet, config: ProgramConfig, storage: PrefixSt
                 && config
                     .prefixes_regex
                     .is_match(&prefix.prefix.ip().to_string())
+                && !config.ignore_new_prefixes
             {
                 debug!(
                     "{:?} FOUND new: {}",

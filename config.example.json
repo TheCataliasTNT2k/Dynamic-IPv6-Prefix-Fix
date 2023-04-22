@@ -1,7 +1,12 @@
 {
   "listen_interface": "eth0",
   "upstream_mac": "",
+  "ignore_new_prefixes": true,
   "prefixes_regex": "2001.*",
+  "dhcpv6_process_filter": [
+    "dhcpv6",
+    "eth0"
+  ],
   "send_interfaces": [
     {
       "name": "eth1",
@@ -15,9 +20,5 @@
         }
       ]
     }
-  ],
-  "dhcpv6_process_filter": [
-    "dhcpv6",
-    "eth0"
   ]
 }
