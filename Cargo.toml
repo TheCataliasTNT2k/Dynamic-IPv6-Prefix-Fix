@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 pnet = { version = "0.33.0", default_features = false, features = ["std"] }
-sysinfo = { version = "0.28.3", default_features = false }
+sysinfo = { version = "0.29.0", default_features = false }
 nix = { version = "0.26.2", default_features = false, features = ["signal"] }
 tracing = { version = "0.1.38", default-features = false }
 tracing-subscriber = { version = "0.3.17", default-features = false, features = ["fmt", "ansi", "env-filter"] }
