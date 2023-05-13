@@ -98,6 +98,37 @@ impl Ipv6Packet {
         self.ra.checksum = 0;
         self.ra.checksum = self.imcpv6_checksum();
     }
+
+    /// convert packet to vec of bytes\
+    /// generates checksums
+    pub(crate) fn as_packet(&mut self) -> Vec<u8> {
+        self.generate_and_store_checksum();
+        let data = self.ra.to_vec(self);
+
+        // create storage; add destination mac
+        let mut ip_buf = vec![51, 51, 0, 0, 0, 1];
+        // add source mac
+        ip_buf.extend_from_slice(&self.source_mac.octets());
+        ip_buf.extend_from_slice(&[
+            // add rest of ethernet header (type)
+            134, 221,
+            // add ip version, traffic class, flow label
+            // be aware, these are byte aligned here, (e.g. ip version is 4 bit in packet, so it was merged with next 4 bit)
+            96, 4, 172, 239,
+        ]);
+        // add payload length
+        ip_buf.extend_from_slice(&(data.len() as u16).to_be_bytes());
+        // add next header and hop limit
+        ip_buf.extend_from_slice(&[58, 255]);
+        // add source ip
+        ip_buf.extend_from_slice(&self.source_ip.octets());
+        // add destination ip
+        ip_buf.extend_from_slice(&self.dest_ip.octets());
+        // add icmp data
+        ip_buf.extend_from_slice(&data);
+
+        ip_buf
+    }
 }
 
 #[allow(dead_code)]
@@ -275,33 +306,4 @@ impl EthernetPacket {
             payload,
         })
     }
-}
-
-pub(crate) fn to_packet(payload: &mut Ipv6Packet) -> Vec<u8> {
-    payload.generate_and_store_checksum();
-    let data = payload.ra.to_vec(payload);
-
-    // create storage; add destination mac
-    let mut ip_buf = vec![51, 51, 0, 0, 0, 1];
-    // add source mac
-    ip_buf.extend_from_slice(&payload.source_mac.octets());
-    ip_buf.extend_from_slice(&[
-        // add rest of ethernet header (type)
-        134, 221,
-        // add ip version, traffic class, flow label
-        // be aware, these are byte aligned here, (e.g. ip version is 4 bit in packet, so it was merged with next 4 bit)
-        96, 4, 172, 239,
-    ]);
-    // add payload length
-    ip_buf.extend_from_slice(&(data.len() as u16).to_be_bytes());
-    // add next header and hop limit
-    ip_buf.extend_from_slice(&[58, 255]);
-    // add source ip
-    ip_buf.extend_from_slice(&payload.source_ip.octets());
-    // add destination ip
-    ip_buf.extend_from_slice(&payload.dest_ip.octets());
-    // add icmp data
-    ip_buf.extend_from_slice(&data);
-
-    ip_buf
 }

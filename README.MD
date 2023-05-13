@@ -49,24 +49,26 @@ This will cause the process to re-request the delegated prefix or get a new one,
 
 The config file has the following fields:
 
-|         Setting         |       Type       |             Example             | Explanation                                                                                                            |
-|:-----------------------:|:----------------:|:-------------------------------:|:-----------------------------------------------------------------------------------------------------------------------|
-|   `listen_interface`    |      String      |             `eth0`              | The program will listen on this interface for RAs from the upstream router                                             |
-|     `upstream_mac`      |      String      |       `ba:c8:e2:e8:6c:01`       | Only RAs with this mac as source mac are accepted                                                                      |
-|  `ignore_new_prefixes`  |       bool       |             `true`              | If true, the program will not send RAs if new a prefix is received, only if at least one known prefix is missing in RA |
-|    `prefixes_regex`     |      String      | <code>2001:.\*\|fd00:.\*</code> | Only advertised prefixes matching this regex are used                                                                  |
-| `dhcpv6_process_filter` | Array of Strings |       `["dhcpv6","eth0"]`       | Search filter for the dhcpv6 process; all must match                                                                   |
-|    `send_interfaces`    |    see below     |                                 | Which interfaces should be used to send RAs for the invalid prefixes                                                   |
+|           Setting           |       Type       |             Example             | Explanation                                                                                                            |
+|:---------------------------:|:----------------:|:-------------------------------:|:-----------------------------------------------------------------------------------------------------------------------|
+|     `listen_interface`      |      String      |             `eth0`              | The program will listen on this interface for RAs from the upstream router                                             |
+|       `upstream_mac`        |      String      |       `ba:c8:e2:e8:6c:01`       | Only RAs with this mac as source mac are accepted                                                                      |
+|    `ignore_new_prefixes`    |       bool       |             `true`              | If true, the program will not send RAs if new a prefix is received, only if at least one known prefix is missing in RA |
+| `wait_before_dhcpv6_reload` |        u8        |               `2`               | Time in seconds to wait, before reload signal is sent. Is used to give program enough time to get actual ips           |
+| `wait_after_dhcpv6_reload`  |        u8        |               `2`               | Time to wait after reload signal, before prefixes to be sent are calculated                                            |
+|      `prefixes_regex`       |      String      | <code>2001:.\*\|fd00:.\*</code> | Only advertised prefixes matching this regex are used                                                                  |
+|   `dhcpv6_process_filter`   | Array of Strings |       `["dhcpv6","eth0"]`       | Search filter for the dhcpv6 process; all must match                                                                   |
+|      `send_interfaces`      |    see below     |                                 | Which interfaces should be used to send RAs for the invalid prefixes                                                   |
 
 <br>
 
 `send_interfaces` is an array (list) of the following:
 
-|    Setting    |       Type        |   Example   | Explanation                                                                                                                            |
-|:-------------:|:-----------------:|:-----------:|:---------------------------------------------------------------------------------------------------------------------------------------|
-|    `name`     |      String       |   `eth1`    | Which interface should be used to send the RAs                                                                                         |
-| `send_delays` | Array of unit > 0 | `[1,1,2,3]` | Configure delays of the RAs to send.<br/>Delay of 0 is always included.<br/>Add up: `[1,1,2,3]` will send RAs on seconds 0, 1, 2, 4, 7 |
-|  `prefixes`   |     see below     |             | Which ips on this interface should be sent in the RAs as invalid prefixes                                                              |
+|    Setting    |      Type       |   Example   | Explanation                                                                                                                            |
+|:-------------:|:---------------:|:-----------:|:---------------------------------------------------------------------------------------------------------------------------------------|
+|    `name`     |     String      |   `eth1`    | Which interface should be used to send the RAs                                                                                         |
+| `send_delays` | Array of u8 > 0 | `[1,1,2,3]` | Configure delays of the RAs to send.<br/>Delay of 0 is always included.<br/>Add up: `[1,1,2,3]` will send RAs on seconds 0, 1, 2, 4, 7 |
+|  `prefixes`   |    see below    |             | Which ips on this interface should be sent in the RAs as invalid prefixes                                                              |
 
 <br>
 
@@ -75,7 +77,7 @@ The config file has the following fields:
 | Setting  |  Type  |             Example             | Explanation                                                |
 |:--------:|:------:|:-------------------------------:|:-----------------------------------------------------------|
 | `regex`  | String | <code>2001:.\*\|fd00:.\*</code> | The RAs will contain all prefixes which match this regex   |
-| `length` |  uint  |              `64`               | Length of the prefix in the RAs (netmask in cidr notation) |
+| `length` |   u8   |              `64`               | Length of the prefix in the RAs (netmask in cidr notation) |
 
 ## Build the mips binary yourself
 

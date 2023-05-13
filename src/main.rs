@@ -16,6 +16,7 @@
 
 use std::env;
 use std::process::exit;
+use std::sync::Arc;
 
 use regex::Regex;
 use tracing::{error, info, warn};
@@ -24,7 +25,7 @@ use crate::config::{load, ProgramConfig};
 use crate::utils::{get_interface_channel, listen_to_ras};
 
 mod config;
-mod ras;
+mod packets;
 mod utils;
 
 fn check_config(config: &mut ProgramConfig) {
@@ -91,5 +92,5 @@ pub fn main() {
     };
     info!("Listening on interface '{}'", config.listen_interface);
 
-    listen_to_ras(rx, &config);
+    listen_to_ras(rx, Arc::new(config));
 }

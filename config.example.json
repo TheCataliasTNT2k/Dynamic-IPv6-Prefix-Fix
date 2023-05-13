@@ -2,6 +2,8 @@
   "listen_interface": "eth0",
   "upstream_mac": "",
   "ignore_new_prefixes": true,
+  "wait_before_dhcpv6_reload": 2,
+  "wait_after_dhcpv6_reload": 3,
   "prefixes_regex": "2001.*",
   "dhcpv6_process_filter": [
     "dhcpv6",

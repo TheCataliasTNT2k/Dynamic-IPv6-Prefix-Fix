@@ -9,6 +9,8 @@ pub(crate) struct ProgramConfig {
     pub(crate) listen_interface: String,
     pub(crate) upstream_mac: String,
     pub(crate) ignore_new_prefixes: bool,
+    pub(crate) wait_before_dhcpv6_reload: u8,
+    pub(crate) wait_after_dhcpv6_reload: u8,
     pub(crate) dhcpv6_process_filter: Vec<String>,
     #[serde(with = "serde_regex")]
     pub(crate) prefixes_regex: Regex,
