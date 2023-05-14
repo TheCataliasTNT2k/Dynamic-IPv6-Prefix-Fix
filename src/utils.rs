@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::net::Ipv6Addr;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread::Thread;
 use std::time::{Duration, Instant};

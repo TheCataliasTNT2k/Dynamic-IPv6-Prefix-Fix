@@ -71,6 +71,10 @@ fn check_config(config: &mut ProgramConfig) {
 pub fn main() {
     tracing_subscriber::fmt::init();
     info!("Starting version {}...", env!("CARGO_PKG_VERSION"));
+    info!(
+        "LOG LEVEL: {}",
+        env::var("RUST_LOG").unwrap_or("Not set".to_owned())
+    );
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         error!("No config file set, exiting!");
