@@ -13,7 +13,7 @@ tracing = { version = "0.1.37", default-features = false }
 tracing-subscriber = { version = "0.3.17", default-features = false, features = ["fmt", "ansi", "env-filter"] }
 regex = { version = "1.8.1", default-features = false }
 config = { version = "0.13.3", default-features = false, features = ["json"] }
-serde = { version = "1.0.163", default-features = false, features = ["serde_derive"] }
+serde = { version = "1.0.167", default-features = false, features = ["serde_derive"] }
 anyhow = { version = "1.0.71", default-features = false, features = ["std"] }
 serde_regex = { version = "1.1.0", default-features = false }
 itertools = { version = "0.10.5" }
