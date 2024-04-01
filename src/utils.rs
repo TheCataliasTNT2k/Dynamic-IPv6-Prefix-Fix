@@ -147,7 +147,8 @@ fn handle_packet(
     }
     debug!("GOT RA: {:x?}", ethernet_packet);
     // get packet
-    let Some(parsed_packet) = Ipv6Packet::from_bytes(&ethernet_packet.payload, ethernet_packet.src) else {
+    let Some(parsed_packet) = Ipv6Packet::from_bytes(&ethernet_packet.payload, ethernet_packet.src)
+    else {
         return;
     };
     // check checksum
@@ -280,6 +281,11 @@ fn work_received_ra(packet: Ipv6Packet, config: Arc<ProgramConfig>, storage: Arc
             .filter(|p| config.prefixes_regex.is_match(&p.prefix.ip().to_string()))
             .map(|p| p.prefix.to_string())
             .collect(),
+    );
+    debug!(
+        "{:?} REMAINING PREFIXES AFTER FILTERING {:?}",
+        thread::current().id(),
+        prefix_lock.0
     );
     debug!(
         "{:?} NORMAL LOCK AFTER: '{}', REMOVE LOCK AFTER: '{}'",
@@ -460,12 +466,20 @@ fn work_ra_for_interface(
     };
     // get mac of this interface
     let Some(mac) = new_interface.mac else {
-        warn!("Interface {} does not have a mac, skipping!", interface_param.name);
+        warn!(
+            "Interface {} does not have a mac, skipping!",
+            interface_param.name
+        );
         return;
     };
     // get link-local address of this interface
     let link_local_regex = Regex::from_str("^fe80:.*").unwrap();
-    let IpNetwork::V6(source_net) = new_interface.ips.iter().find(|ip| link_local_regex.is_match(&ip.ip().to_string())).unwrap() else {
+    let IpNetwork::V6(source_net) = new_interface
+        .ips
+        .iter()
+        .find(|ip| link_local_regex.is_match(&ip.ip().to_string()))
+        .unwrap()
+    else {
         warn!("No fe80 on interface {}, skipping!", interface_param.name);
         return;
     };

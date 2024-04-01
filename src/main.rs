@@ -89,7 +89,11 @@ pub fn main() {
         }
     };
     check_config(&mut config);
-    info!("Using filter '{}'", config.dhcpv6_process_filter.join(", "));
+    info!("Global filtering regex: \"{}\"", config.prefixes_regex);
+    info!(
+        "Using process filter '{}'",
+        config.dhcpv6_process_filter.join(", ")
+    );
     let Some((_, rx)) = get_interface_channel(&config.listen_interface) else {
         error!("Exiting!");
         exit(4);
